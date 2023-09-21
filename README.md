@@ -1,78 +1,55 @@
-/\*\*
+/**
+ * @function updateSourceAndDestinationEnv
+ * @param ruleToUpdate - The DofTicketRuleModel object containing rule details
+ * @description Update source and destination environment names based on rule to update
+ */
+private updateSourceAndDestinationEnv(ruleToUpdate: DofTicketRuleModel): void {
+  const sourceEnvName = this._firewallRulesRequestFacade.getEnvNameSelected(ruleToUpdate.source_servers);
+  const destEnvName = this._firewallRulesRequestFacade.getEnvNameSelected(ruleToUpdate.destination_servers);
 
-- @function setSelectedCiaAndEnvironment
-- @param {string} cia
-- @param {EnvironmentModel} environment
-- @param {string} type
-  \*/
-  private setSelectedCiaAndEnvironment(cia: string, environment: EnvironmentModel | undefined, type: string): void {
-  if (type === 'SOURCE') {
-  this.\_firewallRulesRequestFacade.setSelectedCiaAndEnvironementSource({ environment, cia });
-  } else if (type === 'DESTINATION') {
-  this.\_firewallRulesRequestFacade.setSelectedCiaAndEnvironementDestination({ environment, cia });
-  }
-  }
-
-/\*\*
-
-- @function loadServersByCiaAndEnvironment
-- @param {string} cia
-- @param {EnvironmentModel} environment
-- @param {string} type
-- @param {number} firstRow
-- @param {number} rows
-- @param {string} searchTerm
-  \*/
-  private loadServersByCiaAndEnvironment(cia: string, environment: EnvironmentModel | undefined, type: string, firstRow: number, rows: number, searchTerm?: string): void {
-  const customParams = this.\_firewallRulesRequestFacade.buildPageableParamsMultiselect(firstRow, rows, searchTerm);
-  this.loadingSourceServers = true; // Or loadingDestinationServers, depending on the type
-  const serverList$ = this.\_firewallRulesRequestFacade.lazyLoadDofTicketServersByCiaAndEnvironment(cia, environment, customParams, type);
-
-if (type === 'SOURCE') {
-this.ipsSourceList$ = serverList$.pipe(finalize(() => (this.loadingSourceServers = false)));
-  } else if (type === 'DESTINATION') {
-    this.ipsDestinationList$ = serverList$.pipe(finalize(() => (this.loadingDestinationServers = false)));
-}
+  this.updateSourceEnv(ruleToUpdate, sourceEnvName);
+  this.updateDestinationEnv(ruleToUpdate, destEnvName);
 }
 
-/\*\*
-
-- @function onEnvironmentSelected
-- @param {EnvironmentModel | undefined} environment
-- @param {string} cia
-- @param {string} type
-  \*/
-  onEnvironmentSelected(environment: EnvironmentModel | undefined, cia: string, type: string): void {
-  this.setSelectedCiaAndEnvironment(cia, environment, type);
-  const { firstRow, rows } = type === 'SOURCE' ? this : this;
-  this.loadServersByCiaAndEnvironment(cia, environment, type, firstRow, rows);
+/**
+ * @function updateSourceEnv
+ * @param ruleToUpdate - The DofTicketRuleModel object containing rule details
+ * @param sourceEnvName - The name of the source environment
+ * @description Update source environment and fetch relevant IPs
+ */
+private updateSourceEnv(ruleToUpdate: DofTicketRuleModel, sourceEnvName: string): void {
+  if (!isNullOrUndefinedOrEmptyString(sourceEnvName) && ruleToUpdate.source_cia) {
+    this.selectedSourceEnv = this._firewallRulesRequestFacade.getEnvSelected(sourceEnvName);
+    this.ipsSourceList$ = this._firewallRulesRequestFacade.getDofTicketServersByCiaAndEnvironment(ruleToUpdate.source_cia, this.selectedSourceEnv);
   }
+}
 
-/\*\*
+/**
+ * @function updateDestinationEnv
+ * @param ruleToUpdate - The DofTicketRuleModel object containing rule details
+ * @param destEnvName - The name of the destination environment
+ * @description Update destination environment and fetch relevant IPs
+ */
+private updateDestinationEnv(ruleToUpdate: DofTicketRuleModel, destEnvName: string): void {
+  if (!isNullOrUndefinedOrEmptyString(destEnvName) && ruleToUpdate.destination_cia) {
+    this.selectedDestinationEnv = this._firewallRulesRequestFacade.getEnvSelected(destEnvName);
+    this.ipsDestinationList$ = this._firewallRulesRequestFacade.getDofTicketServersByCiaAndEnvironment(ruleToUpdate.destination_cia, this.selectedDestinationEnv);
+  }
+}
 
-- @function onPageChange
-- @param {number} firstRow
-- @param {number} rows
-- @param {string} type
-  \*/
-  onPageChange(firstRow: number, rows: number, type: string): void {
-  const data = type === 'SOURCE' ? this.\_firewallRulesRequestFacade.getSelectedCiaAndEnvironementSource() : this.\_firewallRulesRequestFacade.getSelectedCiaAndEnvironementDestination();
-  if (data) {
-  this[type === 'SOURCE' ? 'firstRowSourceServers' : 'firstRowDestinationServers'] = firstRow;
-  this[type === 'SOURCE' ? 'rowsSourceServers' : 'rowsDestinationServers'] = rows;
-  this.loadServersByCiaAndEnvironment(data.cia, data.environment, type, firstRow, rows);
-  }
-  }
+/**
+ * @function openAddSourceDialogForUpdate
+ * @param data - The data object containing rule to update and rowIndex
+ * @description Opens the dialog for adding a source and initializes it for updating an existing rule
+ */
+openAddSourceDialogForUpdate(data: {
+  ruleToUpdate: DofTicketRuleModel;
+  rowIndex: number;
+}): void {
+  this.sourceDialogMode = 'UPDATE';
+  this.dofTicketRuleUpdateForm = this._firewallRulesRequestFacade.buildUpdateDofRuleForm(data?.ruleToUpdate);
 
-/\*\*
+  this.updateSourceAndDestinationEnv(data?.ruleToUpdate);
 
-- @function onFilterServers
-- @param {string} searchTerm
-- @param {string} type
-  \*/
-  onFilterServers(searchTerm: string, type: string): void {
-  const data = type === 'SOURCE' ? this.\_firewallRulesRequestFacade.getSelectedCiaAndEnvironementSource() : this.\_firewallRulesRequestFacade.getSelectedCiaAndEnvironementDestination();
-  if (data) {
-  this.loadServersByCiaAndEnvironment(data.cia, data.environment, type, 0, type === 'SOURCE' ? 10 : 100, searchTerm);
-  }
-  }
+  this.displayAddSourceDialog = !this.displayAddSourceDialog;
+}
